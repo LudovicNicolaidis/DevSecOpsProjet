@@ -1,0 +1,53 @@
+name: CI/CD DevSecOps - Symfony
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: ⬇️ Checkout code
+      uses: actions/checkout@v3
+
+    - name: 🧰 Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.1'
+
+    - name: 🧪 Install dependencies
+      run: composer install --no-progress --no-suggest --prefer-dist
+
+    - name: 🔍 Run PHPStan (SAST)
+      run: vendor/bin/phpstan analyse src --level=max
+
+    - name: 🧪 Run unit tests (PHPUnit)
+      run: ./vendor/bin/phpunit
+
+    - name: 📦 Symfony Security Checker (scan des dépendances)
+      run: |
+        curl -sS https://get.symfony.com/cli/installer | bash
+        ./symfony check:security
+
+  deploy-to-staging:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: 🚀 Deploy to staging server
+      run: echo "Deploy script here via rsync or ssh"
+
+  dast-scan:
+    runs-on: ubuntu-latest
+    needs: deploy-to-staging
+
+    steps:
+    - name: 🚨 Run OWASP ZAP (DAST)
+      uses: zaproxy/action-baseline@v0.7.0
+      with:
+        target: 'http://staging.yourdomain.com'
